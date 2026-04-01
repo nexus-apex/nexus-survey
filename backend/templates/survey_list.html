@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Surveys | NexusSurvey{% endblock %}
+{% block page_title %}Surveys{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+  <form class="search-bar" method="get" style="flex:1;margin-bottom:0">
+    <input type="text" name="search" value="{{ search }}" placeholder="Search surveys...">
+    <select name="status" onchange="this.form.submit()">
+      <option value="">All Status</option>
+      <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Draft</option>
+      <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+      <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  </form>
+  <a href="/surveys/create/" class="btn btn-primary">+ New Survey</a>
+</div>
+
+<div class="card">
+  {% if records %}
+  <table>
+    <thead>
+      <tr><th>Title</th><th>Category</th><th>Status</th><th>Responses</th><th>Created Date</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td><a href="/surveys/{{ r.pk }}/edit/"><strong>{{ r.title }}</strong></a></td>
+        <td>{{ r.category|default:"-" }}</td>
+        <td><span class="badge badge-blue">{{ r.get_status_display }}</span></td>
+        <td>{{ r.responses|default:"-" }}</td>
+        <td style="color:var(--muted)">{{ r.created_date|date:"M d, Y"|default:"-" }}</td>
+        <td class="actions">
+          <a href="/surveys/{{ r.pk }}/edit/" class="btn btn-primary btn-sm">Edit</a>
+          <form method="post" action="/surveys/{{ r.pk }}/delete/" style="display:inline" onsubmit="return confirm('Delete?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">Del</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <p>No surveys found.</p>
+    <a href="/surveys/create/" class="btn btn-primary" style="margin-top:1rem">Create Survey</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
