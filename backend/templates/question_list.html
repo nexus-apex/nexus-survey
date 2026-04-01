@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Questions | NexusSurvey{% endblock %}
+{% block page_title %}Questions{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+  <form class="search-bar" method="get" style="flex:1;margin-bottom:0">
+    <input type="text" name="search" value="{{ search }}" placeholder="Search questions...">
+    <select name="status" onchange="this.form.submit()">
+      <option value="">All Question Type</option>
+      <option value="multiple_choice" {% if status_filter == 'multiple_choice' %}selected{% endif %}>Multiple Choice</option>
+      <option value="rating" {% if status_filter == 'rating' %}selected{% endif %}>Rating</option>
+      <option value="text" {% if status_filter == 'text' %}selected{% endif %}>Text</option>
+      <option value="yes_no" {% if status_filter == 'yes_no' %}selected{% endif %}>Yes No</option>
+      <option value="scale" {% if status_filter == 'scale' %}selected{% endif %}>Scale</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  </form>
+  <a href="/questions/create/" class="btn btn-primary">+ New Question</a>
+</div>
+
+<div class="card">
+  {% if records %}
+  <table>
+    <thead>
+      <tr><th>Survey Title</th><th>Question Type</th><th>Required</th><th>Position</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td><a href="/questions/{{ r.pk }}/edit/"><strong>{{ r.survey_title }}</strong></a></td>
+        <td><span class="badge badge-blue">{{ r.get_question_type_display }}</span></td>
+        <td><span class="badge {{ r.required|yesno:\"badge-green,badge-red\" }}">{{ r.required|yesno:\"Yes,No\" }}</span></td>
+        <td>{{ r.position|default:"-" }}</td>
+        <td class="actions">
+          <a href="/questions/{{ r.pk }}/edit/" class="btn btn-primary btn-sm">Edit</a>
+          <form method="post" action="/questions/{{ r.pk }}/delete/" style="display:inline" onsubmit="return confirm('Delete?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">Del</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <p>No questions found.</p>
+    <a href="/questions/create/" class="btn btn-primary" style="margin-top:1rem">Create Question</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
