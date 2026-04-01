@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit{% else %}New{% endif %} Question | NexusSurvey{% endblock %}
+{% block page_title %}{% if editing %}Edit Question{% else %}New Question{% endif %}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:750px">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="form-group">
+        <label>Survey Title</label>
+        <input type="text" name="survey_title" value="{{ record.survey_title|default:'' }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Text</label>
+      <textarea name="text">{{ record.text|default:'' }}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Question Type</label>
+        <select name="question_type">
+          <option value="multiple_choice" {% if record.question_type == 'multiple_choice' %}selected{% endif %}>Multiple Choice</option>
+          <option value="rating" {% if record.question_type == 'rating' %}selected{% endif %}>Rating</option>
+          <option value="text" {% if record.question_type == 'text' %}selected{% endif %}>Text</option>
+          <option value="yes_no" {% if record.question_type == 'yes_no' %}selected{% endif %}>Yes No</option>
+          <option value="scale" {% if record.question_type == 'scale' %}selected{% endif %}>Scale</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="checkbox-wrapper">
+        <input type="checkbox" name="required" id="id_required" {% if record.required %}checked{% endif %}>
+        <label for="id_required" style="margin-bottom:0">Required</label>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Position</label>
+        <input type="number" name="position" value="{{ record.position|default:'0' }}">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0.75rem;margin-top:1rem">
+      <button type="submit" class="btn btn-primary">{% if editing %}Update{% else %}Create{% endif %} Question</button>
+      <a href="/questions/" class="btn" style="background:var(--border);color:var(--text)">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
