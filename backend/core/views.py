@@ -3,9 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.conf import settings
-from .models import Record
+from django.db.models import Sum, Count
+from .models import Survey, Question, SurveyResponse
 
 
 def login_view(request):
@@ -30,67 +29,171 @@ def logout_view(request):
 
 @login_required
 def dashboard_view(request):
-    total = Record.objects.count()
-    active = Record.objects.filter(status='active').count()
-    pending = Record.objects.filter(status='pending').count()
-    inactive = Record.objects.filter(status='inactive').count()
-    recent = Record.objects.all()[:10]
-    return render(request, 'dashboard.html', {
-        'total': total, 'active': active, 'pending': pending,
-        'inactive': inactive, 'recent': recent,
-    })
+    ctx = {}
+    ctx['survey_count'] = Survey.objects.count()
+    ctx['survey_draft'] = Survey.objects.filter(status='draft').count()
+    ctx['survey_active'] = Survey.objects.filter(status='active').count()
+    ctx['survey_closed'] = Survey.objects.filter(status='closed').count()
+    ctx['question_count'] = Question.objects.count()
+    ctx['question_multiple_choice'] = Question.objects.filter(question_type='multiple_choice').count()
+    ctx['question_rating'] = Question.objects.filter(question_type='rating').count()
+    ctx['question_text'] = Question.objects.filter(question_type='text').count()
+    ctx['surveyresponse_count'] = SurveyResponse.objects.count()
+    ctx['surveyresponse_complete'] = SurveyResponse.objects.filter(status='complete').count()
+    ctx['surveyresponse_partial'] = SurveyResponse.objects.filter(status='partial').count()
+    ctx['surveyresponse_total_score'] = SurveyResponse.objects.aggregate(t=Sum('score'))['t'] or 0
+    ctx['recent'] = Survey.objects.all()[:10]
+    return render(request, 'dashboard.html', ctx)
 
 
 @login_required
-def records_view(request):
-    records = Record.objects.all()
-    status_filter = request.GET.get('status', '')
+def survey_list(request):
+    qs = Survey.objects.all()
     search = request.GET.get('search', '')
-    if status_filter:
-        records = records.filter(status=status_filter)
     if search:
-        records = records.filter(name__icontains=search)
-    return render(request, 'records.html', {'records': records, 'status_filter': status_filter, 'search': search})
+        qs = qs.filter(title__icontains=search)
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    return render(request, 'survey_list.html', {'records': qs, 'search': search, 'status_filter': status_filter})
 
 
 @login_required
-def record_create(request):
+def survey_create(request):
     if request.method == 'POST':
-        Record.objects.create(
-            name=request.POST.get('name', ''),
-            description=request.POST.get('description', ''),
-            status=request.POST.get('status', 'active'),
-            email=request.POST.get('email', ''),
-            phone=request.POST.get('phone', ''),
-            amount=request.POST.get('amount', 0) or 0,
-            notes=request.POST.get('notes', ''),
-        )
-        return redirect('/records/')
-    return render(request, 'record_form.html', {'editing': False})
+        obj = Survey()
+        obj.title = request.POST.get('title', '')
+        obj.category = request.POST.get('category', '')
+        obj.status = request.POST.get('status', '')
+        obj.responses = request.POST.get('responses') or 0
+        obj.created_date = request.POST.get('created_date') or None
+        obj.deadline = request.POST.get('deadline') or None
+        obj.description = request.POST.get('description', '')
+        obj.save()
+        return redirect('/surveys/')
+    return render(request, 'survey_form.html', {'editing': False})
 
 
 @login_required
-def record_edit(request, pk):
-    record = get_object_or_404(Record, pk=pk)
+def survey_edit(request, pk):
+    obj = get_object_or_404(Survey, pk=pk)
     if request.method == 'POST':
-        record.name = request.POST.get('name', record.name)
-        record.description = request.POST.get('description', record.description)
-        record.status = request.POST.get('status', record.status)
-        record.email = request.POST.get('email', record.email)
-        record.phone = request.POST.get('phone', record.phone)
-        record.amount = request.POST.get('amount', record.amount) or 0
-        record.notes = request.POST.get('notes', record.notes)
-        record.save()
-        return redirect('/records/')
-    return render(request, 'record_form.html', {'record': record, 'editing': True})
+        obj.title = request.POST.get('title', '')
+        obj.category = request.POST.get('category', '')
+        obj.status = request.POST.get('status', '')
+        obj.responses = request.POST.get('responses') or 0
+        obj.created_date = request.POST.get('created_date') or None
+        obj.deadline = request.POST.get('deadline') or None
+        obj.description = request.POST.get('description', '')
+        obj.save()
+        return redirect('/surveys/')
+    return render(request, 'survey_form.html', {'record': obj, 'editing': True})
 
 
 @login_required
-def record_delete(request, pk):
-    record = get_object_or_404(Record, pk=pk)
+def survey_delete(request, pk):
+    obj = get_object_or_404(Survey, pk=pk)
     if request.method == 'POST':
-        record.delete()
-    return redirect('/records/')
+        obj.delete()
+    return redirect('/surveys/')
+
+
+@login_required
+def question_list(request):
+    qs = Question.objects.all()
+    search = request.GET.get('search', '')
+    if search:
+        qs = qs.filter(survey_title__icontains=search)
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        qs = qs.filter(question_type=status_filter)
+    return render(request, 'question_list.html', {'records': qs, 'search': search, 'status_filter': status_filter})
+
+
+@login_required
+def question_create(request):
+    if request.method == 'POST':
+        obj = Question()
+        obj.survey_title = request.POST.get('survey_title', '')
+        obj.text = request.POST.get('text', '')
+        obj.question_type = request.POST.get('question_type', '')
+        obj.required = request.POST.get('required') == 'on'
+        obj.position = request.POST.get('position') or 0
+        obj.save()
+        return redirect('/questions/')
+    return render(request, 'question_form.html', {'editing': False})
+
+
+@login_required
+def question_edit(request, pk):
+    obj = get_object_or_404(Question, pk=pk)
+    if request.method == 'POST':
+        obj.survey_title = request.POST.get('survey_title', '')
+        obj.text = request.POST.get('text', '')
+        obj.question_type = request.POST.get('question_type', '')
+        obj.required = request.POST.get('required') == 'on'
+        obj.position = request.POST.get('position') or 0
+        obj.save()
+        return redirect('/questions/')
+    return render(request, 'question_form.html', {'record': obj, 'editing': True})
+
+
+@login_required
+def question_delete(request, pk):
+    obj = get_object_or_404(Question, pk=pk)
+    if request.method == 'POST':
+        obj.delete()
+    return redirect('/questions/')
+
+
+@login_required
+def surveyresponse_list(request):
+    qs = SurveyResponse.objects.all()
+    search = request.GET.get('search', '')
+    if search:
+        qs = qs.filter(survey_title__icontains=search)
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    return render(request, 'surveyresponse_list.html', {'records': qs, 'search': search, 'status_filter': status_filter})
+
+
+@login_required
+def surveyresponse_create(request):
+    if request.method == 'POST':
+        obj = SurveyResponse()
+        obj.survey_title = request.POST.get('survey_title', '')
+        obj.respondent = request.POST.get('respondent', '')
+        obj.score = request.POST.get('score') or 0
+        obj.submitted_date = request.POST.get('submitted_date') or None
+        obj.feedback = request.POST.get('feedback', '')
+        obj.status = request.POST.get('status', '')
+        obj.save()
+        return redirect('/surveyresponses/')
+    return render(request, 'surveyresponse_form.html', {'editing': False})
+
+
+@login_required
+def surveyresponse_edit(request, pk):
+    obj = get_object_or_404(SurveyResponse, pk=pk)
+    if request.method == 'POST':
+        obj.survey_title = request.POST.get('survey_title', '')
+        obj.respondent = request.POST.get('respondent', '')
+        obj.score = request.POST.get('score') or 0
+        obj.submitted_date = request.POST.get('submitted_date') or None
+        obj.feedback = request.POST.get('feedback', '')
+        obj.status = request.POST.get('status', '')
+        obj.save()
+        return redirect('/surveyresponses/')
+    return render(request, 'surveyresponse_form.html', {'record': obj, 'editing': True})
+
+
+@login_required
+def surveyresponse_delete(request, pk):
+    obj = get_object_or_404(SurveyResponse, pk=pk)
+    if request.method == 'POST':
+        obj.delete()
+    return redirect('/surveyresponses/')
 
 
 @login_required
@@ -98,12 +201,10 @@ def settings_view(request):
     return render(request, 'settings.html')
 
 
-# API endpoints
 @login_required
 def api_stats(request):
-    return JsonResponse({
-        'total': Record.objects.count(),
-        'active': Record.objects.filter(status='active').count(),
-        'pending': Record.objects.filter(status='pending').count(),
-        'inactive': Record.objects.filter(status='inactive').count(),
-    })
+    data = {}
+    data['survey_count'] = Survey.objects.count()
+    data['question_count'] = Question.objects.count()
+    data['surveyresponse_count'] = SurveyResponse.objects.count()
+    return JsonResponse(data)
