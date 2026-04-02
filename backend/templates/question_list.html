@@ -29,7 +29,7 @@
       <tr>
         <td><a href="/questions/{{ r.pk }}/edit/"><strong>{{ r.survey_title }}</strong></a></td>
         <td><span class="badge badge-blue">{{ r.get_question_type_display }}</span></td>
-        <td><span class="badge {{ r.required|yesno:\"badge-green,badge-red\" }}">{{ r.required|yesno:\"Yes,No\" }}</span></td>
+        <td><span class="badge {{ r.required|yesno:"badge-green,badge-red" }}">{{ r.required|yesno:"Yes,No" }}</span></td>
         <td>{{ r.position|default:"-" }}</td>
         <td class="actions">
           <a href="/questions/{{ r.pk }}/edit/" class="btn btn-primary btn-sm">Edit</a>
